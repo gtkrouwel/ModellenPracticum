@@ -5,6 +5,7 @@ from pyproj import Transformer
 
 import datetime
 import logging
+import os
 from pathlib import Path
 
 import pandas as pd
@@ -25,13 +26,14 @@ circuit_20049 = 165236.264,577272.523
 circuit_20726 = 206863.49,567024.869
 circuit_22102 = 158361.29,432857.689
 
-
-
 DATA_PATH = "data"
+data_path = Path(DATA_PATH)
+
+if not data_path.is_dir():
+    data_path.mkdir()
 
 logger = logging.getLogger(__name__)
 
-data_path = Path(DATA_PATH)
 downloaded_weather_folder = data_path / "weather_data"
 downloaded_weather_uur_folder = data_path / "weather_uur_data"
 downloaded_weather_cds_folder = data_path / "weather_cds_data"
