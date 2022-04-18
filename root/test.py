@@ -2,14 +2,39 @@ import numpy as np
 from sklearn.model_selection import train_test_split
 from sklearn.metrics import r2_score
 from sklearn.linear_model import BayesianRidge
-# import matplotlib.pyplot as plt
-# import retrieve_model_data from .py
 
-# This function returns the soil-temperature data, 
-# Cable temperature data and the current as calculated in 2
-def retrieve_data():
-    # return retrieve_model_data()
-    return np.zeros(shape=1), np.zeros(shape=1), np.zeros(shape=1)
+import sys, os
+from pathlib import Path
+
+path_to_T_soil_repo = Path(os.pardir, os.pardir, "DavyWestra")
+sys.path.append(str(path_to_T_soil_repo.resolve()))
+from T_soil import T_soil, get_circuit_nr, propagation, current
+
+# Input: The timeframe requested and the circuit number
+# Output: Data on the soil temperature of said circuit in this time frame
+def retrieve_soil_data(circuitnr, begin_date, end_date):
+    t_soil = T_soil(circuitnr=circuitnr, begin_date=begin_date, end_date=end_date)
+    return t_soil
+
+# Input: The timeframe requested and the circuit number
+# Output: Data on the propagation of said circuit in this time frame
+def retrieve_propagation_data(circuitnr, begin_date, end_date):
+    prop = propagation(circuitnr=circuitnr, begin_date=begin_date, end_date=end_date)
+    return prop
+
+# Input: The timeframe requested and the circuit number
+# Output: Data on the current of said circuit in this time frame
+def retrieve_current_data(circuitnr, begin_date, end_date):
+    curr = current(circuitnr=circuitnr, begin_date=begin_date, end_date=end_date)
+    return curr
+
+# Input: The constant c, current and soil temperature
+# Output: Table temperature from the formula t_cable = c*p + t_soil
+def calculate_t_cable(constant_c, curr, t_soil):
+    # This works because prop and t_soil are numpy arrays
+    curr_for_form = curr*curr
+    t_cable = constant_c*curr_for_form + t_soil
+    return t_cable
 
 # Takes as input two datasets, the data itself and the target
 # Outputs the model and the r-score of the model
@@ -31,7 +56,23 @@ def setup_bayesian_linear_regression(calc_data, calc_target):
     return model, r_score_model
 
 def main():
-    #temp_soil_data, temp_cable_data, current_data = retrieve_data()
+    constant_c = 1
+    begin_date, end_date = 0, 0
+    circuit_nr = get_circuit_nr()
+    cable_temps = np.array()
+    prop_data = np.array()
+    for c_nr in circuit_nr:
+        curr = retrieve_current_data(c_nr, begin_date, end_date)
+        t_soil = retrieve_soil_data(c_nr, begin_date, end_date)
+        t_cable = calculate_t_cable(constant_c, curr, t_soil)
+        prop = retrieve_propagation_data(c_nr, begin_date, end_date)
+        # Fix append
+        cable_temps.append([c_nr, t_cable])
+        prop_data.append([c_nr, prop])
+    
+    for i in (0, len(cable_temps)):
+        _, score = setup_bayesian_linear_regression(prop_data[i], cable_temps[i])
+        print(score)
     return 0
         
 if __name__ == "__main__":
