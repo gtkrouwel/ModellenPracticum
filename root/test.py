@@ -13,20 +13,17 @@ from T_soil import T_soil, get_circuit_nr, propagation, current
 # Input: The timeframe requested and the circuit number
 # Output: Data on the soil temperature of said circuit in this time frame
 def retrieve_soil_data(circuitnr, begin_date, end_date):
-    t_soil = T_soil(circuitnr=circuitnr, begin_date=begin_date, end_date=end_date)
-    return t_soil
+    return T_soil(circuitnr=circuitnr, begin_date=begin_date, end_date=end_date)
 
 # Input: The timeframe requested and the circuit number
 # Output: Data on the propagation of said circuit in this time frame
 def retrieve_propagation_data(circuitnr, begin_date, end_date):
-    prop = propagation(circuitnr=circuitnr, begin_date=begin_date, end_date=end_date)
-    return prop
+    return propagation(circuitnr=circuitnr, begin_date=begin_date, end_date=end_date)
 
 # Input: The timeframe requested and the circuit number
 # Output: Data on the current of said circuit in this time frame
 def retrieve_current_data(circuitnr, begin_date, end_date):
-    curr = current(circuitnr=circuitnr, begin_date=begin_date, end_date=end_date)
-    return curr
+    return current(circuitnr=circuitnr, begin_date=begin_date, end_date=end_date)
 
 # Input: The constant c, current and soil temperature
 # Output: Table temperature from the formula t_cable = c*p + t_soil
