@@ -6,9 +6,14 @@ from sklearn.linear_model import BayesianRidge
 import sys, os
 from pathlib import Path
 
-path_to_T_soil_repo = Path(os.pardir, os.pardir, "DavyWestra")
-sys.path.append(str(path_to_T_soil_repo.resolve()))
-from T_soil import T_soil, get_circuit_nr, propagation, current
+# Some paths needed for importing, not needed in end-product
+path_to_T_soil_dir = Path(os.pardir, os.pardir, "DavyWestra")
+sys.path.append(str(path_to_T_soil_dir.resolve()))
+path_to_circuit_nos = Path(os.pardir, os.pardir, "Arthur")
+sys.path.append(str(path_to_circuit_nos.resolve()))
+
+from T_soil import T_soil, propagation, current
+from auxiliary_cable_temperature_model import get_circuit_nos
 
 # Input: The timeframe requested and the circuit number
 # Output: Data on the soil temperature of said circuit in this time frame
@@ -55,7 +60,7 @@ def setup_bayesian_linear_regression(calc_data, calc_target):
 def main():
     constant_c = 1
     begin_date, end_date = 0, 0
-    circuit_nr = get_circuit_nr()
+    circuit_nr = get_circuit_nos()
     cable_temps = np.array()
     prop_data = np.array()
     for c_nr in circuit_nr:
