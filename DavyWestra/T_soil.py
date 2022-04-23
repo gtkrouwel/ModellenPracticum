@@ -25,7 +25,7 @@ circuit_coordinates =  {1358:(131436.240,502678.470),
                         20726:(206863.49,567024.869),
                         22102:(158361.29,432857.689)}
 
-path_to_T_soil_repo = Path(os.pardir,os.pardir,"modellenpracticum2022-speed-of-heat")
+path_to_alliander_repo = Path(os.pardir,os.pardir,"modellenpracticum2022-speed-of-heat")
 
 import sys
 # Make path absolute and tell Python to also look there when importing modules.
