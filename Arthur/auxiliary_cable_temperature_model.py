@@ -1,11 +1,13 @@
 import os
 from pathlib import Path
-import numpy as np
 import sys
+import numpy as np
+import pandas as pd
+from typing import Union
 
 # Adds given directory `dir` to PATH variable. Use this before importing .py
 # files from a different directory, if those .py files aren't part of a module.
-# `dir` : Path object.
+# `dir` : `Path` object. Can be relative.
 def add_to_path(dir):
     # Make path absolute and tell Python to also look there when importing.
     sys.path.append(str(dir.resolve()))
@@ -18,13 +20,16 @@ path_to_preprocess = path_to_alliander_repo / "notebooks"
 add_to_path(path_to_preprocess)
 from preprocess import *
 
+# Function to get soil temperature data.
 path_to_t_soil = Path(os.pardir, "DavyWestra")
 add_to_path(path_to_t_soil)
 from T_soil import T_soil
 
 
-# Returns list of all circuit numbers available to us.
-def get_circuit_nos():
+def get_circuit_nos() -> list[str]:
+    """
+    :return: List of all circuit numbers available to us.
+    """
     # Have to check that it contains only digits because in the same data
     # directory there's a directory "weather_cds_data".
     return [subdir.name for subdir in path_to_data.iterdir() if subdir.name.isdigit()]
@@ -39,13 +44,20 @@ _all_electricity_data = {}
 #     for circuit_no in _circuit_nos
 # }
 
-# Returns multidimensional array (TODO find out what kind, numpy? pandas dataframe?)
-# of electricity data. Data is cached because loading the data is slow.
-def get_electricity_data(circuit_no):
-    circuit_no = str(circuit_no)  # Make sure it's a string and not a number.
+def get_electricity_data(circuit_no: Union[int, str]) -> pd.DataFrame:
+    """
+    Load electricity data for a cable into a pandas dataframe. Data is cached
+    because loading the data is slow.
+
+    :param circuit_no: Circuit number of cable for which to get data.
+    :return: Electricity data for cable `circuit_no`.
+    """
+    circuit_no = str(circuit_no)  # Make sure it's a string.
+    if circuit_no not in get_circuit_nos():
+        raise ValueError("Given circuit number not known.")
 
     # If data for `circuit_no` not yet loaded, add key-value pair with
-    # key   = circuit_no
+    # key   = `circuit_no`
     # value = electricity data
     if circuit_no not in _all_electricity_data:
         _all_electricity_data.update([(circuit_no, load_wop_data(circuit_no, path_to_data))])
@@ -55,7 +67,7 @@ def get_electricity_data(circuit_no):
 # Dictionary.
 # Key   = circuit number.
 # Value = soil temperature data for that circuit.
-all_soil_temperature_data = {}  # TODO implement.
+_all_soil_temperature_data = {}  # TODO implement.
 
 # Auxiliary cable temperature model. "Auxiliary" because instances of this class
 # are models that compute the cable temperature based on (i) soil temperature
@@ -76,8 +88,9 @@ class Aux_cable_temperature_model:
     def compute_cable_temperature(self, circuit_no):
         circuit_no = str(circuit_no)
         electricity_data = get_electricity_data(circuit_no)
-        soil_temperature = all_soil_temperature_data[str(circuit_no)]
+        soil_temperature = _all_soil_temperature_data[str(circuit_no)]
         return self.computer(electricity_data, soil_temperature)
+
 
 # These functions do the actual computations.
 
@@ -102,15 +115,13 @@ models = [
 ]
 
 if __name__ == "__main__":
-    print('Hello world')
-
     # Example:
     # You can do a for-loop over the models like so:
-    # for circuit_no in _circuit_nos:
-    #     for model in models:
-    #         cable_temperature_data = model.compute_cable_temperature(circuit_no)
-    #         soil_temperature_data = all_soil_temperature_data[circuit_no]
-    #         # Do bayesian linear regression...
-    #         print("Result for circuit ", circuit_no, " using the ", model.name,
-    #             " model with equation ", model.equation, ":", sep="")
-    #         # Show results...
+    for circuit_no in get_circuit_nos():
+        for model in models:
+            cable_temperature_data = model.compute_cable_temperature(circuit_no)
+            soil_temperature_data = _all_soil_temperature_data[circuit_no]
+            # Do bayesian linear regression...
+            print("Result for circuit ", circuit_no, " using the ", model.name,
+                " model with equation ", model.equation, ":", sep="")
+            # Show results...
