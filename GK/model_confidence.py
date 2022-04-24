@@ -7,9 +7,9 @@ import sys, os
 from pathlib import Path
 
 # Some paths needed for importing, not needed in end-product
-path_to_T_soil_dir = Path(os.pardir, os.pardir, "DavyWestra")
+path_to_T_soil_dir = Path(os.pardir, "DavyWestra")
 sys.path.append(str(path_to_T_soil_dir.resolve()))
-path_to_circuit_nos = Path(os.pardir, os.pardir, "Arthur")
+path_to_circuit_nos = Path(os.pardir, "Arthur")
 sys.path.append(str(path_to_circuit_nos.resolve()))
 
 from T_soil import T_soil, propagation, current
@@ -61,14 +61,13 @@ def main():
     constant_c = 1
     begin_date, end_date = 0, 0
     circuit_nr = get_circuit_nos()
-    cable_temps = np.array()
-    prop_data = np.array()
+    cable_temps = []
+    prop_data = []
     for c_nr in circuit_nr:
         curr = retrieve_current_data(c_nr, begin_date, end_date)
         t_soil = retrieve_soil_data(c_nr, begin_date, end_date)
         t_cable = calculate_t_cable(constant_c, curr, t_soil)
         prop = retrieve_propagation_data(c_nr, begin_date, end_date)
-        # Fix append
         cable_temps.append([c_nr, t_cable])
         prop_data.append([c_nr, prop])
     
