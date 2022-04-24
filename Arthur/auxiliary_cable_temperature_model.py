@@ -5,10 +5,16 @@ import numpy as np
 import pandas as pd
 from typing import Union
 
-# Adds given directory `dir` to PATH variable. Use this before importing .py
-# files from a different directory, if those .py files aren't part of a module.
-# `dir` : `Path` object. Can be relative.
-def add_to_path(dir):
+def add_to_path(dir: Path):
+    """
+    Adds given directory `dir` to PATH variable. Use this before importing .py
+    files from a different directory, if those .py files aren't part of a
+    module.
+
+    :param dir: Path to the directory containing files to import. Note that this
+    function doesn't actually import anything by itself. The path can be
+    relative.
+    """
     # Make path absolute and tell Python to also look there when importing.
     sys.path.append(str(dir.resolve()))
 
@@ -38,11 +44,6 @@ def get_circuit_nos() -> list[str]:
 # Key   = circuit number.
 # Value = electricity data for that circuit.
 _all_electricity_data = {}
-# TODO remove old code later:
-# _all_electricity_data = {
-#     circuit_no : load_wop_data(circuit_no, path_to_data)
-#     for circuit_no in _circuit_nos
-# }
 
 def get_electricity_data(circuit_no: Union[int, str]) -> pd.DataFrame:
     """
@@ -64,38 +65,41 @@ def get_electricity_data(circuit_no: Union[int, str]) -> pd.DataFrame:
     
     return _all_electricity_data[circuit_no]
 
-# Dictionary.
-# Key   = circuit number.
-# Value = soil temperature data for that circuit.
-_all_soil_temperature_data = {}  # TODO implement.
-
-# Auxiliary cable temperature model. "Auxiliary" because instances of this class
-# are models that compute the cable temperature based on (i) soil temperature
-# and optionally (ii) electricity data. That data for the cable temperature is
-# then used to optimize the parameters of the "main" model, which predicts cable
-# temperature based on propagation speed.
 class Aux_cable_temperature_model:
-    # `computer` is a function with input
-    # - electricity data
-    # - soil temperature data
-    # and output:
-    # - cable temperature.
+    """
+    Auxiliary cable temperature model. "Auxiliary" because instances of this
+    class are models that compute the cable temperature based on (i) soil
+    temperature and optionally (ii) electricity data. That data for the cable
+    temperature is then used to optimize the parameters of the "main" model,
+    which predicts cable temperature based on propagation speed.
+    """
+
     def __init__(self, name: str, equation: str, computer):
+        """
+        :param name: Human-readable name describing the model.
+        :param equation: Human-readable equation which the model represents.
+        :param computer: Function with input (electricity data, soil temperature
+        data) and output cable temperature.
+        """
         self.name = name
         self.equation = equation
         self.computer = computer
 
-    def compute_cable_temperature(self, circuit_no):
+    def compute_cable_temperature(self, circuit_no: Union[int, str]):
         circuit_no = str(circuit_no)
         electricity_data = get_electricity_data(circuit_no)
-        soil_temperature = _all_soil_temperature_data[str(circuit_no)]
+        # The time interval for which we need soil temperature data, depends on
+        # the time interval for which we have electricity data.
+        t_begin = electricity_data.at[0,'Date/time (UTC)']
+        t_end = electricity_data['Date/time (UTC)'].iloc[-1]
+        soil_temperature = T_soil(int(circuit_no), t_begin, t_end)
         return self.computer(electricity_data, soil_temperature)
 
 
 # These functions do the actual computations.
 
 def compute_cable_tempt_naive(electricity_data, soil_temperature):
-    pass  # TODO implement
+    return soil_temperature
 
 def compute_cable_tempt_linear(electricity_data, soil_temperature):
     pass  # TODO implement
@@ -103,25 +107,24 @@ def compute_cable_tempt_linear(electricity_data, soil_temperature):
 # We can add models to this list.
 models = [
     Aux_cable_temperature_model(
-          "Naive"
-        , "T_cable(t) = T_soil(t)"
-        , compute_cable_tempt_naive
+        "Naive",
+        "T_cable(t) = T_soil(t)",
+        compute_cable_tempt_naive
     ),
     Aux_cable_temperature_model(
-          "Linear"
-        , "T_cable(t) = C * P(t) + T_soil(t)"
-        , compute_cable_tempt_linear
+        "Linear",
+        "T_cable(t) = C * P(t) + T_soil(t)",
+        compute_cable_tempt_linear
     )
 ]
 
-if __name__ == "__main__":
-    # Example:
-    # You can do a for-loop over the models like so:
-    for circuit_no in get_circuit_nos():
-        for model in models:
-            cable_temperature_data = model.compute_cable_temperature(circuit_no)
-            soil_temperature_data = _all_soil_temperature_data[circuit_no]
-            # Do bayesian linear regression...
-            print("Result for circuit ", circuit_no, " using the ", model.name,
-                " model with equation ", model.equation, ":", sep="")
-            # Show results...
+# if __name__ == "__main__":
+#     # Example:
+#     # You can do a for-loop over the models like so:
+#     for circuit_no in get_circuit_nos():
+#         for model in models:
+#             cable_temperature_data = model.compute_cable_temperature(circuit_no)
+#             # Do bayesian linear regression...
+#             print("Result for circuit ", circuit_no, " using the ", model.name,
+#                 " model with equation ", model.equation, ":", sep="")
+#             # Show results...
