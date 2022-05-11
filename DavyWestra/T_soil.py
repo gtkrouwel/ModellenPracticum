@@ -24,16 +24,11 @@ circuit_coordinates =  {1358:(131436.240,502678.470),
                         20726:(206863.49,567024.869),
                         22102:(158361.29,432857.689)}
 
-path_to_alliander_repo = Path(os.pardir, os.pardir, "modellenpracticum2022-speed-of-heat")
-path_to_DavyWestra = Path(os.pardir,"DavyWestra")
-
-import sys
-sys.path.append(str(path_to_DavyWestra.resolve()))
-sys.path.append(str(path_to_alliander_repo.resolve()))
+print(os.getcwd())
 
 from weather_api import *
 
-downloaded_weather_cds_folder = path_to_alliander_repo / "data" / "weather_cds_data"
+print(downloaded_weather_cds_folder)
 
 # For begin_date and end_date you can use pd.Timestamp(YYYY,MM,DD)
 def T_soil(circuitnr, begin_date: datetime.date, end_date: datetime.date,level=3):
