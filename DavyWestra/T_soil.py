@@ -24,11 +24,7 @@ circuit_coordinates =  {1358:(131436.240,502678.470),
                         20726:(206863.49,567024.869),
                         22102:(158361.29,432857.689)}
 
-print(os.getcwd())
-
 from weather_api import *
-
-print(downloaded_weather_cds_folder)
 
 # For begin_date and end_date you can use pd.Timestamp(YYYY,MM,DD)
 def T_soil(circuitnr, begin_date: datetime.date, end_date: datetime.date,level=3):
