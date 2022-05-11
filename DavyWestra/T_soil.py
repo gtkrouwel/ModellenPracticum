@@ -29,15 +29,16 @@ path_to_DavyWestra = Path(os.pardir,"DavyWestra")
 
 import sys
 sys.path.append(str(path_to_DavyWestra.resolve()))
+sys.path.append(str(path_to_alliander_repo.resolve()))
 
 from weather_api import *
-
-logger = logging.getLogger(__name__)
 
 downloaded_weather_cds_folder = path_to_alliander_repo / "data" / "weather_cds_data"
 
 # For begin_date and end_date you can use pd.Timestamp(YYYY,MM,DD)
 def T_soil(circuitnr, begin_date: datetime.date, end_date: datetime.date,level=3):
+    circuitnr = int(circuitnr)
+
     #check whether the circuit number eists
     if circuitnr not in circuit_coordinates:
         return "circuit number doesn't exist"
