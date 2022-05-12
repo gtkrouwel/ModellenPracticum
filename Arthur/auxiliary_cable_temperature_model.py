@@ -38,17 +38,41 @@ def get_circuit_nos() -> list[str]:
     """
     # Have to check that it contains only digits because in the same data
     # directory there's a directory "weather_cds_data".
-    return [subdir.name for subdir in path_to_data.iterdir() if subdir.name.isdigit()]
+    # TODO remove `and subdir.name != '3249'` if the data for circuit 3249 ever
+    # becomes available. (Currently the Power.csv for that circuit is basically
+    # empty.)
+    return [subdir.name for subdir in path_to_data.iterdir() if subdir.name.isdigit() and subdir.name != '3249']
 
 # Dictionary.
 # Key   = circuit number.
 # Value = electricity data for that circuit.
 _all_electricity_data = {}
 
+def _rename_columns(column_title: str):
+    """
+    Helper function to pass to `pandas.DataFrame.rename`. Returns more
+    human-readable version of input. Determines meaning of input by looking at
+    the last two characters.
+
+    :param column_title: Column title.
+    :return: More human-readable version of `column_title`.
+    """
+    suffix = column_title[-2:]  # Last two characters
+    if suffix == '-I':
+        return 'Current'
+    if suffix == '-P':
+        return 'Power'
+    if suffix == '-Q':
+        return 'Reactive power'
+    else:
+        return column_title  # If not recognize, don't change.
+
 def get_electricity_data(circuit_no: Union[int, str]) -> pd.DataFrame:
     """
     Load electricity data for a cable into a pandas dataframe. Data is cached
-    because loading the data is slow.
+    because loading the data is slow. Columns (excluding the date-time column)
+    are renamed to 'Current', 'Power', and 'Reactive power' (based on their
+    meaning). Note that not all columns are always present.
 
     :param circuit_no: Circuit number of cable for which to get data.
     :return: Electricity data for cable `circuit_no`.
@@ -61,7 +85,12 @@ def get_electricity_data(circuit_no: Union[int, str]) -> pd.DataFrame:
     # key   = `circuit_no`
     # value = electricity data
     if circuit_no not in _all_electricity_data:
-        _all_electricity_data.update([(circuit_no, load_wop_data(circuit_no, path_to_data))])
+        # Load data.
+        electricity_data = load_wop_data(circuit_no, path_to_data)
+        # Make column titles more readable.
+        electricity_data.rename(columns=_rename_columns, inplace=True)
+
+        _all_electricity_data.update([(circuit_no, electricity_data)])
     
     return _all_electricity_data[circuit_no]
 
@@ -92,16 +121,16 @@ class Aux_cable_temperature_model:
         # the time interval for which we have electricity data.
         t_begin = electricity_data.at[0,'Date/time (UTC)']
         t_end = electricity_data['Date/time (UTC)'].iloc[-1]
-        soil_temperature = T_soil(int(circuit_no), t_begin, t_end)
+        soil_temperature = T_soil(circuit_no, t_begin, t_end)
         return self.computer(electricity_data, soil_temperature)
 
 
 # These functions do the actual computations.
 
-def compute_cable_tempt_naive(electricity_data, soil_temperature):
+def _compute_cable_tempt_naive(electricity_data, soil_temperature):
     return soil_temperature
 
-def compute_cable_tempt_linear(electricity_data, soil_temperature):
+def _compute_cable_tempt_linear(electricity_data, soil_temperature):
     pass  # TODO implement
 
 # We can add models to this list.
@@ -109,16 +138,26 @@ models = [
     Aux_cable_temperature_model(
         "Naive",
         "T_cable(t) = T_soil(t)",
-        compute_cable_tempt_naive
+        _compute_cable_tempt_naive
     ),
     Aux_cable_temperature_model(
         "Linear",
         "T_cable(t) = C * P(t) + T_soil(t)",
-        compute_cable_tempt_linear
+        _compute_cable_tempt_linear
     )
 ]
 
-# if __name__ == "__main__":
+if __name__ == "__main__":
+    # Testing.
+    # print(T_soil(1358, pd.Timestamp(2021,6,1), pd.Timestamp(2021,6,2)))
+
+    # Testing.
+    naive_model = models[0]
+    circuit_no = '1358'
+    soil_tempt_data = naive_model.compute_cable_temperature(circuit_no)
+    print('length =', len(soil_tempt_data))
+    print(soil_tempt_data)
+
 #     # Example:
 #     # You can do a for-loop over the models like so:
 #     for circuit_no in get_circuit_nos():
