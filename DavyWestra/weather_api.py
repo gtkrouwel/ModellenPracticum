@@ -2,7 +2,6 @@
 # -*- coding: utf-8 -*-
 
 import datetime
-import logging
 import os
 from pathlib import Path
 
@@ -13,8 +12,6 @@ downloaded_weather_cds_folder = Path(os.pardir, "weather_data")
 
 import sys
 sys.path.append(str(downloaded_weather_cds_folder.resolve()))
-
-logger = logging.getLogger(__name__)
 
 def _format_date(unformatted_date: datetime.date):
     return unformatted_date.strftime("%Y-%m-%d")
@@ -35,7 +32,7 @@ def _download_csv_from_url(url: str, weather_file_path: Path):
         f.write(download_res.content)
 
 
-def load_weather_data_cds(begin_date: datetime.date, end_date: datetime.date, lat, lon, circuitnr):
+def load_weather_data_cds(lat, lon, circuitnr, begin_date = pd.Timestamp(2019, 5, 1), end_date = pd.Timestamp(2022, 2, 21), ):
     # Check if weather folder exists
     if not downloaded_weather_cds_folder.is_dir():
         downloaded_weather_cds_folder.mkdir()
@@ -45,14 +42,18 @@ def load_weather_data_cds(begin_date: datetime.date, end_date: datetime.date, la
     end_date_str = _format_date(end_date)
 
     # Create file name
-    weather_file = f"Climate_Data_Store_{begin_date_str}_{end_date_str}_{circuitnr}.csv"
+    weather_file = f"Climate_Data_Store_{circuitnr}.csv"
     weather_file_path = downloaded_weather_cds_folder / weather_file  # pathlib.Path object
 
     # Check if the file exists
     if not weather_file_path.is_file():
-        logger.info("Weather data not found in cache. Downloading new data.")
         download_url = _create_url_cds(begin_date, end_date, lat, lon)
         _download_csv_from_url(download_url, weather_file_path)
 
-    weather_df = pd.read_csv(weather_file_path)
-    return weather_df
+    weather_data = pd.read_csv(weather_file_path)
+
+    # Set 'time' column as datetime object and set it as index
+    weather_data["time"] = pd.to_datetime(weather_data["time"])
+    weather_data = weather_data.set_index("time")
+
+    return weather_data
