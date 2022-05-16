@@ -32,6 +32,11 @@ add_to_path(path_to_t_soil)
 from T_soil import T_soil
 
 
+current_column_heading        = 'Current'
+power_column_heading          = 'Power'
+reactive_power_column_heading = 'Reactive power'
+cable_tempt_column_heading    = 'Cable temperature'
+
 def get_circuit_nos() -> list[str]:
     """
     :return: List of all circuit numbers available to us.
@@ -59,11 +64,11 @@ def _rename_columns(column_title: str):
     """
     suffix = column_title[-2:]  # Last two characters
     if suffix == '-I':
-        return 'Current'
+        return current_column_heading
     if suffix == '-P':
-        return 'Power'
+        return power_column_heading
     if suffix == '-Q':
-        return 'Reactive power'
+        return reactive_power_column_heading
     else:
         return column_title  # If not recognize, don't change.
 
@@ -85,8 +90,8 @@ def get_electricity_data(circuit_no: Union[int, str]) -> pd.DataFrame:
     # key   = `circuit_no`
     # value = electricity data
     if circuit_no not in _all_electricity_data:
-        # Load data.
-        electricity_data = load_wop_data(circuit_no, path_to_data)
+        # Load data and resample to 60 min.
+        electricity_data = load_wop_data(circuit_no, path_to_data, True)
         # Make column titles more readable.
         electricity_data.rename(columns=_rename_columns, inplace=True)
 
@@ -117,46 +122,98 @@ class Aux_cable_temperature_model:
     def compute_cable_temperature(self, circuit_no: Union[int, str]):
         circuit_no = str(circuit_no)
         electricity_data = get_electricity_data(circuit_no)
+
         # The time interval for which we need soil temperature data, depends on
         # the time interval for which we have electricity data.
-        t_begin = electricity_data.at[0,'Date/time (UTC)']
-        t_end = electricity_data['Date/time (UTC)'].iloc[-1]
+        t_begin = electricity_data.first_valid_index()
+        t_end   = electricity_data.last_valid_index()
         soil_temperature = T_soil(circuit_no, t_begin, t_end)
-        return self.computer(electricity_data, soil_temperature)
+        current_data = electricity_data[current_column_heading]
+
+        return self.computer(current_data, soil_temperature)
 
 
+# ================================================================
 # These functions do the actual computations.
 
-def _compute_cable_tempt_naive(electricity_data, soil_temperature):
-    return soil_temperature
+def _compute_cable_tempt_naive(
+    current_data: pd.core.series.Series,
+    soil_temperature: pd.core.series.Series
+    ) -> pd.core.series.Series:
+    """
+    Returns a series with the (predicted) cable temperature. For the output and
+    all parameters, the indices are date-time objects. The intersection of the
+    input is taken, meaning if a data point at time T is missing for one or both
+    of the inputs, then that time T is completely ignored. As a result, the
+    output may be discontinuous.
+    The cable temperature is predicted according to the model:
+    T_cable(t) = T_soil(t)
 
-def _compute_cable_tempt_linear(electricity_data, soil_temperature):
-    pass  # TODO implement
+    :param current_data: series where values are current I.
+    :param soil_temperature: series where values are soil temperature in
+    Celsius.
+    :return: series where values are (predicted) cable temperature.
+    """
+    # TODO select the data points for which correlation between propagation
+    # speed and soil temperature is high, so that soil temperature equals cable
+    # temperature.
+    pass
 
-# We can add models to this list.
-models = [
-    Aux_cable_temperature_model(
-        "Naive",
-        "T_cable(t) = T_soil(t)",
-        _compute_cable_tempt_naive
-    ),
-    Aux_cable_temperature_model(
-        "Linear",
-        "T_cable(t) = C * P(t) + T_soil(t)",
-        _compute_cable_tempt_linear
+def _compute_cable_tempt_linear(
+    current_data: pd.core.series.Series,
+    soil_temperature: pd.core.series.Series
+    ) -> pd.core.series.Series:
+    """
+    Documentation exactly the same as for `_compute_cable_tempt_naive()` except
+    the model used is:
+    T_cable(t) = C * I(t)^2 + T_soil(t).
+    """
+    # The constant "C" from the model, as computed by our mathematicians.
+    constant_c = 7.79e-8
+
+    soil_tempt_column_heading = soil_temperature.name
+
+    # Put input data in a single dataframe.
+    input_data = pd.concat([current_data, soil_temperature],
+        axis=1,
+        join='inner'  # Intersect.
     )
-]
+
+    # Compute output (store in a new column next to the input data).
+    input_data[cable_tempt_column_heading] = input_data.apply(lambda row :
+        # T_cable(t) = C * I(t)^2 + T_soil(t).
+        constant_c * row[current_column_heading]**2
+        + row[soil_tempt_column_heading],
+        axis=1  # Apply to each row.
+    )
+    return input_data[cable_tempt_column_heading]
+
+# ================================================================
+# Models.
+
+naive_model = Aux_cable_temperature_model(
+    "Naive",
+    "T_cable(t) = T_soil(t)",
+    _compute_cable_tempt_naive
+)
+
+linear_model = Aux_cable_temperature_model(
+    "Linear",
+    "T_cable(t) = C * I(t)^2 + T_soil(t)",
+    _compute_cable_tempt_linear
+)
+
+# All models to try.
+# TODO add naive model once it's finished (see the TODO in the body of
+# `_compute_cable_tempt_naive()`).
+models = [linear_model]
 
 if __name__ == "__main__":
     # Testing.
-    # print(T_soil(1358, pd.Timestamp(2021,6,1), pd.Timestamp(2021,6,2)))
-
-    # Testing.
-    naive_model = models[0]
-    circuit_no = '1358'
-    soil_tempt_data = naive_model.compute_cable_temperature(circuit_no)
-    print('length =', len(soil_tempt_data))
-    print(soil_tempt_data)
+    circuit_no = get_circuit_nos()[0]
+    model = linear_model
+    cable_tempt_data = model.compute_cable_temperature(circuit_no)
+    print(cable_tempt_data)
 
 #     # Example:
 #     # You can do a for-loop over the models like so:
