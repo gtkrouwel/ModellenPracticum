@@ -119,7 +119,13 @@ class Aux_cable_temperature_model:
         self.equation = equation
         self.computer = computer
 
-    def compute_cable_temperature(self, circuit_no: Union[int, str]):
+    def compute_cable_temperature(self, circuit_no: Union[int, str]
+    ) -> pd.core.series.Series:
+        """
+        :param circuit_no: ID of the cable for which cable temperature data is
+        to be computed.
+        :return: same as for `_compute_cable_tempt_naive()`.
+        """
         circuit_no = str(circuit_no)
         electricity_data = get_electricity_data(circuit_no)
 
@@ -139,7 +145,7 @@ class Aux_cable_temperature_model:
 def _compute_cable_tempt_naive(
     current_data: pd.core.series.Series,
     soil_temperature: pd.core.series.Series
-    ) -> pd.core.series.Series:
+) -> pd.core.series.Series:
     """
     Returns a series with the (predicted) cable temperature. For the output and
     all parameters, the indices are date-time objects. The intersection of the
@@ -162,7 +168,7 @@ def _compute_cable_tempt_naive(
 def _compute_cable_tempt_linear(
     current_data: pd.core.series.Series,
     soil_temperature: pd.core.series.Series
-    ) -> pd.core.series.Series:
+) -> pd.core.series.Series:
     """
     Documentation exactly the same as for `_compute_cable_tempt_naive()` except
     the model used is:
