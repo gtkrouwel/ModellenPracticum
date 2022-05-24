@@ -25,8 +25,14 @@ CIRCUIT_COORDINATES =  {1358:(131436.240,502678.470),
 
 from weather_api import *
 
-# For begin_date and end_date you can use pd.Timestamp(YYYY,MM,DD)
+
 def load_temp_soil(circuitnr, level=3):
+    """
+    Load the soil temperature data (Celcius) from online weather API
+    :param circuitnr: circuitnr which to load
+    :param level: depth level of soil temperature (1,2,3,4)
+    :return dataframe with soil temperature with hourly timestamps as index
+    """
     circuitnr = int(circuitnr)
 
     #check whether the circuit number eists

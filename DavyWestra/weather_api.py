@@ -32,7 +32,15 @@ def _download_csv_from_url(url: str, weather_file_path: Path):
         f.write(download_res.content)
 
 
-def load_weather_data_cds(lat, lon, circuitnr, begin_date = pd.Timestamp(2019, 5, 1), end_date = pd.Timestamp(2022, 2, 21), ):
+def load_weather_data_cds(lat, lon, circuitnr, begin_date = pd.Timestamp(2019, 5, 1), end_date = pd.Timestamp(2022, 2, 21)):
+    """
+    Load the weather data from online weather API
+    :param lat, lon: latitude and longitude of weather data
+    :param circuitnr: circuitnr which to load
+    :param begin_date, end_date: time interval of weather data
+    :return dataframe with weather data
+    """
+
     # Check if weather folder exists
     if not downloaded_weather_cds_folder.is_dir():
         downloaded_weather_cds_folder.mkdir()
