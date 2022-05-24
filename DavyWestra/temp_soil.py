@@ -10,7 +10,7 @@ import pandas as pd
 import requests
 
 # Circuits coordinates
-circuit_coordinates =  {1358:(131436.240,502678.470),
+CIRCUIT_COORDINATES =  {1358:(131436.240,502678.470),
                         2003:(117955.218,479433.147),
                         2308:(105884.568,465322.411),
                         2611:(111530.098,516758.349),
@@ -26,14 +26,14 @@ circuit_coordinates =  {1358:(131436.240,502678.470),
 from weather_api import *
 
 # For begin_date and end_date you can use pd.Timestamp(YYYY,MM,DD)
-def load_temp_soil(circuitnr, begin_date: datetime.date, end_date: datetime.date,level=3):
+def load_temp_soil(circuitnr, level=3):
     circuitnr = int(circuitnr)
 
     #check whether the circuit number eists
     if circuitnr not in circuit_coordinates:
         return "circuit number doesn't exist"
     else:
-        circuitnr_XY = circuit_coordinates.get(circuitnr)
+        circuitnr_XY = CIRCUIT_COORDINATES.get(circuitnr)
 
     # Check for correct level input
     if level not in [1,2,3,4]:
@@ -41,10 +41,10 @@ def load_temp_soil(circuitnr, begin_date: datetime.date, end_date: datetime.date
 
     # Transforms from Dutch Coordinate System (Amersfoort / RD New) to World Coordinate System (WGS84)
     transformer = Transformer.from_crs( "EPSG:28992","EPSG:4326")
-    lat, lon = transformer.transform(circuit_coordinates[circuitnr][0],circuit_coordinates[circuitnr][1])
+    lat, lon = transformer.transform(CIRCUIT_COORDINATES[circuitnr][0],CIRCUIT_COORDINATES[circuitnr][1])
 
     weather_data = load_weather_data_cds(lat, lon, circuitnr)
 
     # Extract the desired time interval
-    temp_soil = weather_data["soil_temperature_level_{0}".format(level)][begin_date:end_date]
+    temp_soil = weather_data["soil_temperature_level_{0}".format(level)]
     return temp_soil
