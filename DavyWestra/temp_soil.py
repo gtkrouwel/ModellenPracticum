@@ -30,7 +30,7 @@ def load_temp_soil(circuitnr, level=3):
     circuitnr = int(circuitnr)
 
     #check whether the circuit number eists
-    if circuitnr not in circuit_coordinates:
+    if circuitnr not in CIRCUIT_COORDINATES:
         return "circuit number doesn't exist"
     else:
         circuitnr_XY = CIRCUIT_COORDINATES.get(circuitnr)
