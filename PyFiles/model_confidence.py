@@ -1,30 +1,17 @@
-import numpy as np
 from sklearn.model_selection import train_test_split
 from sklearn.metrics import r2_score
 from sklearn.linear_model import BayesianRidge
-
-import datetime
 import pandas as pd
-import sys, os
-from pathlib import Path
 
-# Some paths needed for importing, not needed in end-product
-path_to_T_soil_dir = Path(os.pardir, "DavyWestra")
-sys.path.append(str(path_to_T_soil_dir.resolve()))
-path_to_circuit_nos = Path(os.pardir, "Arthur")
-sys.path.append(str(path_to_circuit_nos.resolve()))
-path_to_current = Path(os.pardir, "Joie")
-sys.path.append(str(path_to_current.resolve()))
-
-from T_soil import T_soil
+from temp_soil import load_temp_soil
 from propagation import load_propagation_data
 from auxiliary_cable_temperature_model import get_circuit_nos
-from Main import get_load_data
+from model_q1 import get_load_data
 
 # Input: The timeframe requested and the circuit number
 # Output: Data on the soil temperature of said circuit in this time frame
 def retrieve_soil_data(circuitnr, begin_date, end_date):
-    return T_soil(circuitnr=circuitnr, begin_date=begin_date, end_date=end_date)
+    return load_temp_soil(circuitnr=circuitnr, begin_date=begin_date, end_date=end_date)
 
 # Input: The timeframe requested and the circuit number
 # Output: Data on the propagation of said circuit in this time frame
@@ -68,9 +55,9 @@ def main():
     circuit_nos = get_circuit_nos()
     prop = load_propagation_data(circuit_nos[1], begin_date, end_date)
     curr = get_load_data(circuit_nos[1], begin_date, end_date)
-    T_soil = T_soil(circuit_nos[1], begin_date, end_date)
-    print(prop, curr, T_soil)
-    return 0
+    t_soil = load_temp_soil(circuit_nos[1], begin_date, end_date)
+    print(prop, curr, t_soil)
+
     constant_c = 1
     begin_date, end_date =  pd.Timestamp(2020, 2, 21), pd.Timestamp(2022, 2, 21)
     circuit_nr = get_circuit_nos()

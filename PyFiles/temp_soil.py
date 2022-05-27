@@ -2,12 +2,6 @@
 # -*- coding: utf-8 -*-
 
 from pyproj import Transformer
-import datetime
-import os
-from pathlib import Path
-
-import pandas as pd
-import requests
 
 # Circuits coordinates
 CIRCUIT_COORDINATES =  {1358:(131436.240,502678.470),
@@ -38,8 +32,6 @@ def load_temp_soil(circuitnr, level=3):
     #check whether the circuit number eists
     if circuitnr not in CIRCUIT_COORDINATES:
         return "circuit number doesn't exist"
-    else:
-        circuitnr_XY = CIRCUIT_COORDINATES.get(circuitnr)
 
     # Check for correct level input
     if level not in [1,2,3,4]:

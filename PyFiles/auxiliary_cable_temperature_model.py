@@ -4,38 +4,20 @@ import sys
 import numpy as np
 import pandas as pd
 from typing import Union
-
-def add_to_path(dir: Path):
-    """
-    Adds given directory `dir` to PATH variable. Use this before importing .py
-    files from a different directory, if those .py files aren't part of a
-    module.
-
-    :param dir: Path to the directory containing files to import. Note that this
-    function doesn't actually import anything by itself. The path can be
-    relative.
-    """
-    # Make path absolute and tell Python to also look there when importing.
-    sys.path.append(str(dir.resolve()))
-
-path_to_alliander_repo = Path(os.pardir, os.pardir, "modellenpracticum2022-speed-of-heat")
-path_to_data = path_to_alliander_repo / "data"
-
-# Functions for loading data.
-path_to_preprocess = path_to_alliander_repo / "notebooks"
-add_to_path(path_to_preprocess)
-from preprocess import *
-
-# Function to get soil temperature data.
-path_to_t_soil = Path(os.pardir, "DavyWestra")
-add_to_path(path_to_t_soil)
 from temp_soil import load_temp_soil
 
+# Functions for loading data.
+PATH_TO_ALLIANDER_REPO = Path(os.pardir, os.pardir, "modellenpracticum2022-speed-of-heat")
+PATH_TO_PREPROCESS = PATH_TO_ALLIANDER_REPO / "notebooks"
+sys.path.append(str(PATH_TO_PREPROCESS.resolve()))
+from preprocess import *
 
-current_column_heading        = 'Current'
-power_column_heading          = 'Power'
-reactive_power_column_heading = 'Reactive power'
-cable_tempt_column_heading    = 'Cable temperature'
+PATH_TO_DATA = PATH_TO_ALLIANDER_REPO / "data"
+
+CURRENT_COLUMN_HEADING        = 'Current'
+POWER_COLUMN_HEADING          = 'Power'
+REACTIVE_POWER_COLUMN_HEADING = 'Reactive power'
+CABLE_TEMP_COLUMN_HEADING     = 'Cable temperature'
 
 def get_circuit_nos() -> list[str]:
     """
@@ -46,7 +28,7 @@ def get_circuit_nos() -> list[str]:
     # TODO remove `and subdir.name != '3249'` if the data for circuit 3249 ever
     # becomes available. (Currently the Power.csv for that circuit is basically
     # empty.)
-    return [subdir.name for subdir in path_to_data.iterdir() if subdir.name.isdigit() and subdir.name != '3249']
+    return [subdir.name for subdir in PATH_TO_DATA.iterdir() if subdir.name.isdigit() and subdir.name != '3249']
 
 # Dictionary.
 # Key   = circuit number.
@@ -64,11 +46,11 @@ def _rename_columns(column_title: str):
     """
     suffix = column_title[-2:]  # Last two characters
     if suffix == '-I':
-        return current_column_heading
+        return CURRENT_COLUMN_HEADING
     if suffix == '-P':
-        return power_column_heading
+        return POWER_COLUMN_HEADING
     if suffix == '-Q':
-        return reactive_power_column_heading
+        return REACTIVE_POWER_COLUMN_HEADING
     else:
         return column_title  # If not recognize, don't change.
 
@@ -91,7 +73,7 @@ def get_electricity_data(circuit_no: Union[int, str]) -> pd.DataFrame:
     # value = electricity data
     if circuit_no not in _all_electricity_data:
         # Load data and resample to 60 min.
-        electricity_data = load_wop_data(circuit_no, path_to_data, True)
+        electricity_data = load_wop_data(circuit_no, PATH_TO_DATA, True)
         # Make column titles more readable.
         electricity_data.rename(columns=_rename_columns, inplace=True)
 
@@ -124,7 +106,7 @@ class Aux_cable_temperature_model:
         """
         :param circuit_no: ID of the cable for which cable temperature data is
         to be computed.
-        :return: same as for `_compute_cable_tempt_naive()`.
+        :return: same as for `_compute_cable_temp_naive()`.
         """
         circuit_no = str(circuit_no)
         electricity_data = get_electricity_data(circuit_no)
@@ -136,7 +118,7 @@ class Aux_cable_temperature_model:
         # soil_temperature = load_temp_soil(circuit_no, t_begin, t_end)  # TODO remove old code
         
         soil_temperature = load_temp_soil(circuit_no)
-        current_data = electricity_data[current_column_heading]
+        current_data = electricity_data[CURRENT_COLUMN_HEADING]
 
         return self.computer(current_data, soil_temperature)
 
@@ -144,7 +126,7 @@ class Aux_cable_temperature_model:
 # ================================================================
 # These functions do the actual computations.
 
-def _compute_cable_tempt_naive(
+def _compute_cable_temp_naive(
     current_data: pd.core.series.Series,
     soil_temperature: pd.core.series.Series
 ) -> pd.core.series.Series:
@@ -167,19 +149,19 @@ def _compute_cable_tempt_naive(
     # temperature.
     pass
 
-def _compute_cable_tempt_linear(
+def _compute_cable_temp_linear(
     current_data: pd.core.series.Series,
     soil_temperature: pd.core.series.Series
 ) -> pd.core.series.Series:
     """
-    Documentation exactly the same as for `_compute_cable_tempt_naive()` except
+    Documentation exactly the same as for `_compute_cable_temp_naive()` except
     the model used is:
     T_cable(t) = C * I(t)^2 + T_soil(t).
     """
     # The constant "C" from the model, as computed by our mathematicians.
     constant_c = 7.79e-8
 
-    soil_tempt_column_heading = soil_temperature.name
+    soil_temp_column_heading = soil_temperature.name
 
     # Put input data in a single dataframe.
     input_data = pd.concat([current_data, soil_temperature],
@@ -188,13 +170,13 @@ def _compute_cable_tempt_linear(
     )
 
     # Compute output (store in a new column next to the input data).
-    input_data[cable_tempt_column_heading] = input_data.apply(lambda row :
+    input_data[CABLE_TEMP_COLUMN_HEADING] = input_data.apply(lambda row :
         # T_cable(t) = C * I(t)^2 + T_soil(t).
-        constant_c * row[current_column_heading]**2
-        + row[soil_tempt_column_heading],
+        constant_c * row[CURRENT_COLUMN_HEADING]**2
+        + row[soil_temp_column_heading],
         axis=1  # Apply to each row.
     )
-    return input_data[cable_tempt_column_heading]
+    return input_data[CABLE_TEMP_COLUMN_HEADING]
 
 # ================================================================
 # Models.
@@ -202,31 +184,31 @@ def _compute_cable_tempt_linear(
 naive_model = Aux_cable_temperature_model(
     "Naive",
     "T_cable(t) = T_soil(t)",
-    _compute_cable_tempt_naive
+    _compute_cable_temp_naive
 )
 
 linear_model = Aux_cable_temperature_model(
     "Linear",
     "T_cable(t) = C * I(t)^2 + T_soil(t)",
-    _compute_cable_tempt_linear
+    _compute_cable_temp_linear
 )
 
 # All models to try.
 # TODO add naive model once it's finished (see the TODO in the body of
-# `_compute_cable_tempt_naive()`).
-models = [linear_model]
+# `_compute_cable_temp_naive()`).
+MODELS = [linear_model]
 
 if __name__ == "__main__":
     # Testing.
     circuit_no = get_circuit_nos()[0]
     model = linear_model
-    cable_tempt_data = model.compute_cable_temperature(circuit_no)
-    print(cable_tempt_data)
+    cable_temp_data = model.compute_cable_temperature(circuit_no)
+    print(cable_temp_data)
 
 #     # Example:
-#     # You can do a for-loop over the models like so:
+#     # You can do a for-loop over the MODELS like so:
 #     for circuit_no in get_circuit_nos():
-#         for model in models:
+#         for model in MODELS:
 #             cable_temperature_data = model.compute_cable_temperature(circuit_no)
 #             # Do bayesian linear regression...
 #             print("Result for circuit ", circuit_no, " using the ", model.name,
