@@ -29,7 +29,7 @@ from preprocess import *
 # Function to get soil temperature data.
 path_to_t_soil = Path(os.pardir, "DavyWestra")
 add_to_path(path_to_t_soil)
-from T_soil import T_soil
+from temp_soil import load_temp_soil
 
 
 current_column_heading        = 'Current'
@@ -131,9 +131,11 @@ class Aux_cable_temperature_model:
 
         # The time interval for which we need soil temperature data, depends on
         # the time interval for which we have electricity data.
-        t_begin = electricity_data.first_valid_index()
-        t_end   = electricity_data.last_valid_index()
-        soil_temperature = T_soil(circuit_no, t_begin, t_end)
+        # t_begin = electricity_data.first_valid_index()  # TODO remove old code
+        # t_end   = electricity_data.last_valid_index()  # TODO remove old code
+        # soil_temperature = load_temp_soil(circuit_no, t_begin, t_end)  # TODO remove old code
+        
+        soil_temperature = load_temp_soil(circuit_no)
         current_data = electricity_data[current_column_heading]
 
         return self.computer(current_data, soil_temperature)
