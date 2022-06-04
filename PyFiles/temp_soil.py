@@ -20,7 +20,7 @@ CIRCUIT_COORDINATES =  {1358:(131436.240,502678.470),
 from weather_api import *
 
 
-def load_temp_soil(circuitnr, level=3):
+def load_temp_soil(circuitnr, begin_date, end_date, level=3):
     """
     Load the soil temperature data (Celcius) from online weather API
     :param circuitnr: circuitnr which to load
@@ -44,5 +44,5 @@ def load_temp_soil(circuitnr, level=3):
     weather_data = load_weather_data_cds(lat, lon, circuitnr)
 
     # Extract the desired time interval
-    temp_soil = weather_data["soil_temperature_level_{0}".format(level)]
+    temp_soil = weather_data["soil_temperature_level_{0}".format(level)][begin_date:end_date]
     return temp_soil
