@@ -1,7 +1,7 @@
 from sklearn.model_selection import train_test_split
 from sklearn.metrics import r2_score
-from sklearn.linear_model import BayesianRidge, LinearRegression
-import pandas as pd
+from sklearn.linear_model import LinearRegression
+from pandas import concat
 from numpy import isnan, delete
 from datetime import datetime
 
@@ -11,6 +11,8 @@ from auxiliary_cable_temperature_model import get_circuit_nos
 import os
 from pathlib import Path
 
+# Constant C as determined outside of this program
+CONSTANT_C = 7.79e-8
 PATH_TO_DATA = Path(os.pardir, os.pardir, "modellenpracticum2022-speed-of-heat") / "data"
 
 # Input: The timeframe requested and the circuit number
@@ -25,18 +27,18 @@ def retrieve_combined_data(circuitnr, begin_date, end_date):
 
 # Input: The constant c, current and soil temperature
 # Output: Table temperature from the formula t_cable = c*p + t_soil
-def calculate_t_cable(constant_c, curr, t_soil):
+def calculate_t_cable(curr, t_soil):
     # This works because prop and t_soil are numpy arrays
-    return constant_c*(curr**2) + t_soil
+    return CONSTANT_C*(curr**2) + t_soil
 
 # Takes as input two datasets, the data itself and the target
 # Outputs the model and the r-score of the model
 def setup_bayesian_linear_regression(calc_data, calc_target):
+    # This part removes all NANs from the data
     list_index = []
     for i in range(0, len(calc_data)):
         if isnan(calc_data[i]) or isnan(calc_target[i]):
             list_index.append(i)
-
     calc_data = delete(calc_data, list_index)
     calc_target = delete(calc_target, list_index)
 
@@ -55,27 +57,54 @@ def setup_bayesian_linear_regression(calc_data, calc_target):
     # print(f"r2 Score Of Test Set : {r2_score(soil_data_test, prediction_r_score)}")
     return model, r_score_model
 
+# Takes as input the whole data-set for a circuit and the soil
+# Outputs all data combined by correct date
+def shape_data(comb_data, temp_soil):
+    # Concatenate the data
+    cat_data = concat([comb_data, temp_soil], axis=1, join='inner').to_numpy()
+
+    # One circuit misses some files, this would solve the issue
+    _, no_of_columns = cat_data.shape
+    type_indexing = 7 - no_of_columns
+    return cat_data[:,0], cat_data[:,3-type_indexing], cat_data[:,6-type_indexing]
+
+def confidence(circuit_nr, begin_date, end_date):
+    model_list = []
+    for c_nr in circuit_nr:
+        # Retrieving current and prop data in a single frame
+        comb_data = retrieve_combined_data(c_nr, begin_date, end_date)
+        # Retrieving soil temp in a single frame
+        t_soil = retrieve_soil_data(c_nr, begin_date, end_date)
+        
+        # Fix the shapes of the data
+        curr, prop, t_soil = shape_data(comb_data, t_soil)
+
+        # Calculate the cable temperature
+        t_cable = calculate_t_cable(curr, t_soil)
+
+        # Actually does the linear regression
+        model, score = setup_bayesian_linear_regression(prop, t_cable)
+        model_list.append([c_nr, model, score])
+
+        # Premature printing
+        #print(model.coef_) 
+        #print(score)
+    return model_list
+
 def main():
-    constant_c = 7.79e-8
-    begin_date, end_date =  datetime(2021, 2, 21), datetime(2022, 2, 21)
+    # Start and end dates
+    begin_date, end_date =  datetime(2021, 2, 21), datetime(2021, 7, 21)
+    
+    # Retrieving all valid circuit numbers
     circuit_nr = get_circuit_nos()
     circuit_nr.remove("2821")
-    # For each circuit number, retrieve all required data
-    for c_nr in circuit_nr:
-        comb_data = retrieve_combined_data(c_nr, begin_date, end_date)
-        t_soil = retrieve_soil_data(c_nr, begin_date, end_date)
-        input_data = pd.concat([comb_data, t_soil], axis=1, join='inner').to_numpy()
-        
-        _, no_of_columns = input_data.shape
-        type_indexing = 7 - no_of_columns
-        curr = input_data[:,0]
-        prop = input_data[:,3-type_indexing]
-        t_soil = input_data[:,6-type_indexing]
-        t_cable = calculate_t_cable(constant_c, curr, t_soil)
 
-        model, score = setup_bayesian_linear_regression(prop, t_cable)
-        print(model.coef_)
-        print(score)
+    # Function which calculates the alpha's
+    model_list = confidence(circuit_nr, begin_date, end_date)
+    for model in model_list:
+        print("The model for circuit number " + str(model[0]) + ":")
+        print("The coefficients for a0 and a1 are 0 and " + str(model[1].coef_[0]))
+        print("The confidence is: " + str(model[2]))
     return 0
         
 if __name__ == "__main__":

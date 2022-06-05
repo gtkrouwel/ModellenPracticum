@@ -5,6 +5,7 @@ import numpy as np
 import pandas as pd
 from typing import Union
 from temp_soil import load_temp_soil
+from datetime import datetime
 
 # Functions for loading data.
 PATH_TO_ALLIANDER_REPO = Path(os.pardir, os.pardir, "modellenpracticum2022-speed-of-heat")
@@ -116,8 +117,8 @@ class Aux_cable_temperature_model:
         # t_begin = electricity_data.first_valid_index()  # TODO remove old code
         # t_end   = electricity_data.last_valid_index()  # TODO remove old code
         # soil_temperature = load_temp_soil(circuit_no, t_begin, t_end)  # TODO remove old code
-        
-        soil_temperature = load_temp_soil(circuit_no)
+        begin_date, end_date =  datetime(2021, 2, 21), datetime(2021, 7, 21)
+        soil_temperature = load_temp_soil(circuit_no, begin_date, end_date)
         current_data = electricity_data[CURRENT_COLUMN_HEADING]
 
         return self.computer(current_data, soil_temperature)
