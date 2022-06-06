@@ -57,30 +57,86 @@ def setup_bayesian_linear_regression(calc_data, calc_target):
     # print(f"r2 Score Of Test Set : {r2_score(soil_data_test, prediction_r_score)}")
     return model, r_score_model
 
-# Takes as input the whole data-set for a circuit and the soil
-# Outputs all data combined by correct date
-def shape_data(comb_data, temp_soil):
-    # Concatenate the data
-    cat_data = concat([comb_data, temp_soil], axis=1, join='inner').to_numpy()
+# Input is all data (so prop, curr and temp_soil)
+# Output is all data where the load is low
+def filter_data(cat_data):
+    threshold, corr = 0.0, 0.0
+    # Fixing the missing columns
+    _, no_of_columns = cat_data.shape
+    type_indexing = 7 - no_of_columns
 
-    # One circuit misses some files, this would solve the issue
+    # Make the currents iterable
+    loads = set(cat_data.iloc[:,0])
+
+    print("Shape of unfiltered data: " + str(cat_data.shape))
+
+    # Loop through all currents
+    for load in loads:
+        # Filter data less than the load
+        filtered_data = cat_data[cat_data.iloc[:,0] <= load]
+
+        # Calculate the correlation coefficient
+        new_corr = filtered_data.iloc[:,6-type_indexing].corr(filtered_data.iloc[:,3-type_indexing], method="pearson", min_periods=100)
+        
+        # If this correlation is higher, than the threshold should change
+        if new_corr > corr:
+            corr = new_corr
+            threshold = load
+    
+    # Only take the data below the threshold for the current 
+    filtered_data = cat_data[cat_data.iloc[:,0] <= threshold]
+    print("Shape of filtered data: " + str(filtered_data.shape))
+    print("Correlation is: " +  str(corr) + " and threshold is: " + str(threshold))
+    return filtered_data
+
+# Takes as input the whole data-set for a circuit and the soil, but also whether we filter the load
+# Outputs all data combined by correct date
+def shape_data(comb_data, temp_soil, low_load):
+    # Concatenate the data
+    cat_data = concat([comb_data, temp_soil], axis=1, join='inner')
+
+    # Filter the data if the flag is set
+    if low_load:
+        cat_data = filter_data(cat_data)
+    cat_data = cat_data.to_numpy()
+
+    # Some circuit miss some columns, this solves the issue
     _, no_of_columns = cat_data.shape
     type_indexing = 7 - no_of_columns
     return cat_data[:,0], cat_data[:,3-type_indexing], cat_data[:,6-type_indexing]
 
-def confidence(circuit_nr, begin_date, end_date):
+# Input is the a1 as determined by the low load cases and the data for a circuit (so prop, t_soil and curr)
+# Output is the constant C
+def reverse_engineer_c(a1, prop, t_soil, curr):
+    # Calculate t_cable through t_cable = a0 + a1*prop
+    t_cable = a1*prop
+
+    # Change the model to T_cable - T_soil = C*I^2(t)
+    target_data = t_cable - t_soil
+
+    # Linear regression on this model, which determines C
+    model, _ = setup_bayesian_linear_regression(calc_data=curr, calc_target=target_data)
+    return model.coef_[0]
+
+# Input is the circuit number list, time frame and a flag for low_load
+# Output is a model for each circuit in an array
+def confidence(circuit_nr, begin_date, end_date, low_load):
     model_list = []
     for c_nr in circuit_nr:
+        print("Investigating circuit: " + str(c_nr))
         # Retrieving current and prop data in a single frame
         comb_data = retrieve_combined_data(c_nr, begin_date, end_date)
         # Retrieving soil temp in a single frame
         t_soil = retrieve_soil_data(c_nr, begin_date, end_date)
         
         # Fix the shapes of the data
-        curr, prop, t_soil = shape_data(comb_data, t_soil)
+        curr, prop, t_soil = shape_data(comb_data, t_soil, low_load)
 
         # Calculate the cable temperature
-        t_cable = calculate_t_cable(curr, t_soil)
+        if low_load:
+            t_cable = t_soil
+        else:
+            t_cable = calculate_t_cable(curr, t_soil)
 
         # Actually does the linear regression
         model, score = setup_bayesian_linear_regression(prop, t_cable)
@@ -89,6 +145,11 @@ def confidence(circuit_nr, begin_date, end_date):
         # Premature printing
         #print(model.coef_) 
         #print(score)
+
+        # If the flag is set, we want to calculate C 
+        if low_load:
+            constant_c = reverse_engineer_c(model.coef_[0], prop, t_soil, curr)
+            print ("Constant_c is: " + str(constant_c))
     return model_list
 
 def main():
@@ -99,8 +160,12 @@ def main():
     circuit_nr = get_circuit_nos()
     circuit_nr.remove("2821")
 
+    # Variable to filter low-load or not
+    low_load = True
+
     # Function which calculates the alpha's
-    model_list = confidence(circuit_nr, begin_date, end_date)
+    model_list = confidence(circuit_nr, begin_date, end_date, low_load)
+    print("Now the summary: ")
     for model in model_list:
         print("The model for circuit number " + str(model[0]) + ":")
         print("The coefficients for a0 and a1 are 0 and " + str(model[1].coef_[0]))
