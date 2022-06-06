@@ -76,7 +76,7 @@ def filter_data(cat_data):
         filtered_data = cat_data[cat_data.iloc[:,0] <= load]
 
         # Calculate the correlation coefficient
-        new_corr = filtered_data.iloc[:,6-type_indexing].corr(filtered_data.iloc[:,3-type_indexing], method="pearson", min_periods=100)
+        new_corr = filtered_data.iloc[:,6-type_indexing].corr(filtered_data.iloc[:,3-type_indexing], method="pearson", min_periods=500)
         
         # If this correlation is higher, than the threshold should change
         if new_corr > corr:
@@ -115,7 +115,7 @@ def reverse_engineer_c(a1, prop, t_soil, curr):
     target_data = t_cable - t_soil
 
     # Linear regression on this model, which determines C
-    model, _ = setup_bayesian_linear_regression(calc_data=curr, calc_target=target_data)
+    model, _ = setup_bayesian_linear_regression(calc_data=(curr**2), calc_target=target_data)
     return model.coef_[0]
 
 # Input is the circuit number list, time frame and a flag for low_load
