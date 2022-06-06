@@ -25,7 +25,7 @@ def load_temp_soil(circuitnr, begin_date, end_date, level=3):
     Load the soil temperature data (Celcius) from online weather API
     :param circuitnr: circuitnr which to load
     :param level: depth level of soil temperature (1,2,3,4)
-    :return dataframe with soil temperature with hourly timestamps as index
+    :return dataframe with soil temperature (Kelvin) with hourly timestamps as index
     """
     circuitnr = int(circuitnr)
 
@@ -45,4 +45,8 @@ def load_temp_soil(circuitnr, begin_date, end_date, level=3):
 
     # Extract the desired time interval
     temp_soil = weather_data["soil_temperature_level_{0}".format(level)][begin_date:end_date]
+
+    # Change from Celcius to Kelvin
+    temp_soil += 273.15
+
     return temp_soil

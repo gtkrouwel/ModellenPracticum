@@ -9,10 +9,6 @@ import requests
 
 downloaded_weather_cds_folder = Path("weather_data")
 
-# TODO: Seems useless, so remove it
-import sys
-sys.path.append(str(downloaded_weather_cds_folder.resolve()))
-
 def _format_date(unformatted_date: datetime.date):
     return unformatted_date.strftime("%Y-%m-%d")
 
@@ -45,9 +41,6 @@ def load_weather_data_cds(lat, lon, circuitnr, begin_date = pd.Timestamp(2019, 5
     if not downloaded_weather_cds_folder.is_dir():
         downloaded_weather_cds_folder.mkdir()
 
-    # Format dates. TODO: Seems useless, so remove it
-    begin_date_str = _format_date(begin_date)
-    end_date_str = _format_date(end_date)
 
     # Create file name
     weather_file = f"Climate_Data_Store_{circuitnr}.csv"
