@@ -26,10 +26,10 @@ def retrieve_combined_data(circuitnr, begin_date, end_date):
     return load_combined_data(circuitnr, PATH_TO_DATA)[begin_date:end_date]
 
 # Input: The constant c, current and soil temperature
-# Output: Table temperature from the formula t_cable = c*p + t_soil
-def calculate_t_cable(curr, t_soil):
-    # This works because prop and t_soil are numpy arrays
-    return CONSTANT_C*(curr**2) + t_soil
+# Output: Table temperature from the formula temp_cable = c*p + temp_soil
+def calculate_temp_cable(curr, temp_soil):
+    # This works because prop and temp_soil are numpy arrays
+    return CONSTANT_C*(curr**2) + temp_soil
 
 # Takes as input two datasets, the data itself and the target
 # Outputs the model and the r-score of the model
@@ -91,28 +91,30 @@ def filter_data(cat_data):
 
 # Takes as input the whole data-set for a circuit and the soil, but also whether we filter the load
 # Outputs all data combined by correct date
-def shape_data(comb_data, temp_soil, low_load):
+def shape_data(comb_data, temp_soil):
     # Concatenate the data
     cat_data = concat([comb_data, temp_soil], axis=1, join='inner')
+    cat_data_low_load = cat_data
 
     # Filter the data if the flag is set
-    if low_load:
-        cat_data = filter_data(cat_data)
+    cat_data_low_load = filter_data(cat_data_low_load).to_numpy()
     cat_data = cat_data.to_numpy()
 
     # Some circuit miss some columns, this solves the issue
-    _, no_of_columns = cat_data.shape
-    type_indexing = 7 - no_of_columns
-    return cat_data[:,0], cat_data[:,3-type_indexing], cat_data[:,6-type_indexing]
+    type_indexing = 7 - cat_data.shape[1]
+    cat_data = (cat_data[:,0], cat_data[:,3-type_indexing], cat_data[:,6-type_indexing])
+    cat_data_low_load = (cat_data_low_load[:,0], cat_data_low_load[:,3-type_indexing], cat_data_low_load[:,6-type_indexing])
 
-# Input is the a1 as determined by the low load cases and the data for a circuit (so prop, t_soil and curr)
+    return cat_data, cat_data_low_load
+
+# Input is the a1 as determined by the low load cases and the data for a circuit (so prop, temp_soil and curr)
 # Output is the constant C
-def reverse_engineer_c(a1, prop, t_soil, curr):
-    # Calculate t_cable through t_cable = a0 + a1*prop
-    t_cable = a1*prop
+def reverse_engineer_c(a1, prop, temp_soil, curr):
+    # Calculate temp_cable through temp_cable = a0 + a1*prop
+    temp_cable = a1*prop
 
-    # Change the model to T_cable - T_soil = C*I^2(t)
-    target_data = t_cable - t_soil
+    # Change the model to temp_cable - temp_soil = C*I^2(t)
+    target_data = temp_cable - temp_soil
 
     # Linear regression on this model, which determines C
     model, _ = setup_bayesian_linear_regression(calc_data=(curr**2), calc_target=target_data)
@@ -127,19 +129,21 @@ def confidence(circuit_nr, begin_date, end_date, low_load):
         # Retrieving current and prop data in a single frame
         comb_data = retrieve_combined_data(c_nr, begin_date, end_date)
         # Retrieving soil temp in a single frame
-        t_soil = retrieve_soil_data(c_nr, begin_date, end_date)
+        temp_soil = retrieve_soil_data(c_nr, begin_date, end_date)
         
         # Fix the shapes of the data
-        curr, prop, t_soil = shape_data(comb_data, t_soil, low_load)
+        cat_data, cat_data_low_load = shape_data(comb_data, temp_soil)
 
         # Calculate the cable temperature
         if low_load:
-            t_cable = t_soil
+            curr, prop, temp_soil = cat_data_low_load
+            temp_cable = temp_soil
         else:
-            t_cable = calculate_t_cable(curr, t_soil)
+            curr, prop, temp_soil = cat_data
+            temp_cable = calculate_temp_cable(curr, temp_soil)
 
         # Actually does the linear regression
-        model, score = setup_bayesian_linear_regression(prop, t_cable)
+        model, score = setup_bayesian_linear_regression(prop, temp_cable)
         model_list.append([c_nr, model, score])
 
         # Premature printing
@@ -148,7 +152,8 @@ def confidence(circuit_nr, begin_date, end_date, low_load):
 
         # If the flag is set, we want to calculate C 
         if low_load:
-            constant_c = reverse_engineer_c(model.coef_[0], prop, t_soil, curr)
+            curr, prop, temp_soil = cat_data
+            constant_c = reverse_engineer_c(model.coef_[0], prop, temp_soil, curr)
             print ("Constant_c is: " + str(constant_c))
     return model_list
 
