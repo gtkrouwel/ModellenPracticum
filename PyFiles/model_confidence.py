@@ -27,13 +27,24 @@ def retrieve_combined_data(circuitnr, begin_date, end_date):
 
 # Input: The constant c, current and soil temperature
 # Output: Table temperature from the formula temp_cable = c*p + temp_soil
-def calculate_temp_cable(curr, temp_soil):
+def calculate_temp_cable(constant_c, curr, temp_soil):
     # This works because prop and temp_soil are numpy arrays
-    return CONSTANT_C*(curr**2) + temp_soil
+    return constant_c*(curr**2) + temp_soil
+
+# Input: A list of circuit numbers, start and end date and optional low load (but should always be true)
+# Output: A list tuple of circuit nr with its errors
+def get_error(c_nr, begin_date, end_date, low_load=True):
+    #TODO: Potentially add all times, ie create pd frame
+    #TODO: Remove NANs from the data
+    model_list = confidence(c_nr, begin_date, end_date, low_load)
+    error_list = []
+    for model in model_list:
+        error_list.append([model[0], model[3]])
+    return error_list
 
 # Takes as input two datasets, the data itself and the target
 # Outputs the model and the r-score of the model
-def setup_bayesian_linear_regression(calc_data, calc_target):
+def setup_bayesian_linear_regression(calc_data, calc_target, fit_intercept=True):
     # This part removes all NANs from the data
     list_index = []
     for i in range(0, len(calc_data)):
@@ -45,7 +56,7 @@ def setup_bayesian_linear_regression(calc_data, calc_target):
     # Training the data to setup our model
     trained_data_calc, test_data_calc, trained_data_target, test_data_target = train_test_split(calc_data, calc_target)
     # Creating the model
-    model = LinearRegression()
+    model = LinearRegression(fit_intercept=fit_intercept)
     # Fit the trained data to the model
     model.fit(trained_data_calc.reshape(-1, 1), trained_data_target)
 
@@ -109,15 +120,15 @@ def shape_data(comb_data, temp_soil):
 
 # Input is the a1 as determined by the low load cases and the data for a circuit (so prop, temp_soil and curr)
 # Output is the constant C
-def reverse_engineer_c(a1, prop, temp_soil, curr):
+def reverse_engineer_c(a0, a1, prop, temp_soil, curr):
     # Calculate temp_cable through temp_cable = a0 + a1*prop
-    temp_cable = a1*prop
+    temp_cable = a0 + a1*prop
 
     # Change the model to temp_cable - temp_soil = C*I^2(t)
     target_data = temp_cable - temp_soil
 
     # Linear regression on this model, which determines C
-    model, _ = setup_bayesian_linear_regression(calc_data=(curr**2), calc_target=target_data)
+    model, _ = setup_bayesian_linear_regression(calc_data=(curr**2), calc_target=target_data, fit_intercept=False)
     return model.coef_[0]
 
 # Input is the circuit number list, time frame and a flag for low_load
@@ -137,10 +148,13 @@ def confidence(circuit_nr, begin_date, end_date, low_load):
         # Calculate the cable temperature
         if low_load:
             curr, prop, temp_soil = cat_data_low_load
+            prop = 1/prop
             temp_cable = temp_soil
+        # This else-statement is not really needed
         else:
             curr, prop, temp_soil = cat_data
-            temp_cable = calculate_temp_cable(curr, temp_soil)
+            prop = 1/prop
+            temp_cable = calculate_temp_cable(CONSTANT_C, curr, temp_soil)
 
         # Actually does the linear regression
         model, score = setup_bayesian_linear_regression(prop, temp_cable)
@@ -152,9 +166,23 @@ def confidence(circuit_nr, begin_date, end_date, low_load):
 
         # If the flag is set, we want to calculate C 
         if low_load:
+            # Change the data to all points
             curr, prop, temp_soil = cat_data
-            constant_c = reverse_engineer_c(model.coef_[0], prop, temp_soil, curr)
+            prop = 1/prop
+
+            # Calculate (a0 + a1*prop) - T_soil = C * I^2
+            constant_c = reverse_engineer_c(model.intercept_, model.coef_[0], prop, temp_soil, curr)
             print ("Constant_c is: " + str(constant_c))
+
+            # Recalculate a1 with new constant C
+            temp_cable = calculate_temp_cable(constant_c, curr, temp_soil)
+            model, score = setup_bayesian_linear_regression(prop, temp_cable)
+
+            #TODO: Remove normalization error
+            # Calculates the error for question 4
+            epsilon_error = temp_cable - (model.intercept_ + model.coef_[0]*prop)
+            model_list.pop()
+            model_list.append([c_nr, model, score, epsilon_error])
     return model_list
 
 def main():
@@ -173,8 +201,11 @@ def main():
     print("Now the summary: ")
     for model in model_list:
         print("The model for circuit number " + str(model[0]) + ":")
-        print("The coefficients for a0 and a1 are 0 and " + str(model[1].coef_[0]))
+        print("The coefficient a0 is: " + str(model[1].intercept_) )
+        print("The coefficient a1 is: " + str(model[1].coef_[0]))
         print("The confidence is: " + str(model[2]))
+        if low_load:
+            print("The error is: " + str(model[3]) )
     return 0
         
 if __name__ == "__main__":
