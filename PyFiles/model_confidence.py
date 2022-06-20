@@ -41,7 +41,7 @@ def get_error(c_nr, begin_date, end_date, low_load=True):
     model_list = confidence(c_nr, begin_date, end_date, low_load)
     error = {}
     for model in model_list:
-        error.update([(model[0], model[4])])
+        error.update({model[0]:model[4]})
     return error
 
 # Takes as input two datasets, the data itself and the target
@@ -81,8 +81,6 @@ def filter_data(cat_data):
     # Make the currents iterable
     loads = set(cat_data.iloc[:,0])
 
-    print("Shape of unfiltered data: " + str(cat_data.shape))
-
     # Loop through all currents
     for load in loads:
         # Filter data less than the load
@@ -98,8 +96,6 @@ def filter_data(cat_data):
     
     # Only take the data below the threshold for the current 
     filtered_data = cat_data[cat_data.iloc[:,0] <= threshold]
-    print("Shape of filtered data: " + str(filtered_data.shape))
-    print("Correlation is: " +  str(corr) + " and threshold is: " + str(threshold))
     return filtered_data
 
 # Takes as input the whole data-set for a circuit and the soil, but also whether we filter the load
@@ -162,10 +158,6 @@ def confidence(circuit_nr, begin_date, end_date, low_load):
         model, score = setup_bayesian_linear_regression(prop, temp_cable)
         model_list.append([c_nr, model, score])
 
-        # Premature printing
-        #print(model.coef_) 
-        #print(score)
-
         # If the flag is set, we want to calculate C 
         if low_load:
             # Change the data to all points
@@ -180,7 +172,6 @@ def confidence(circuit_nr, begin_date, end_date, low_load):
             temp_cable = calculate_temp_cable(constant_c, curr, temp_soil)
             model, score = setup_bayesian_linear_regression(prop, temp_cable)
 
-            #TODO: Remove normalization error
             # Calculates the error for question 4
             epsilon_error = temp_cable - (model.intercept_ + model.coef_[0]*prop)
             model_list.pop()
