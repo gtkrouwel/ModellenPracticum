@@ -1,9 +1,11 @@
 from sklearn.model_selection import train_test_split
 from sklearn.metrics import r2_score
 from sklearn.linear_model import LinearRegression
+from scipy.stats import bayes_mvs
 from pandas import concat
 from numpy import isnan, delete
 from datetime import datetime
+from tabulate import tabulate
 
 from temp_soil import load_temp_soil
 from preprocess import load_combined_data
@@ -32,15 +34,15 @@ def calculate_temp_cable(constant_c, curr, temp_soil):
     return constant_c*(curr**2) + temp_soil
 
 # Input: A list of circuit numbers, start and end date and optional low load (but should always be true)
-# Output: A list tuple of circuit nr with its errors
+# Output: An associative array where the circuit number is the index and the values are the errors
 def get_error(c_nr, begin_date, end_date, low_load=True):
     #TODO: Potentially add all times, ie create pd frame
     #TODO: Remove NANs from the data
     model_list = confidence(c_nr, begin_date, end_date, low_load)
-    error_list = []
+    error = {}
     for model in model_list:
-        error_list.append([model[0], model[3]])
-    return error_list
+        error.update([(model[0], model[4])])
+    return error
 
 # Takes as input two datasets, the data itself and the target
 # Outputs the model and the r-score of the model
@@ -182,7 +184,7 @@ def confidence(circuit_nr, begin_date, end_date, low_load):
             # Calculates the error for question 4
             epsilon_error = temp_cable - (model.intercept_ + model.coef_[0]*prop)
             model_list.pop()
-            model_list.append([c_nr, model, score, epsilon_error])
+            model_list.append([c_nr, model, score, constant_c, epsilon_error])
     return model_list
 
 def main():
@@ -196,6 +198,8 @@ def main():
     # Variable to filter low-load or not
     low_load = True
 
+    col_names = ["Circuit number", "a0", "a1", "confidence", "constant_c"]
+
     # Function which calculates the alpha's
     model_list = confidence(circuit_nr, begin_date, end_date, low_load)
     print("Now the summary: ")
@@ -205,7 +209,10 @@ def main():
         print("The coefficient a1 is: " + str(model[1].coef_[0]))
         print("The confidence is: " + str(model[2]))
         if low_load:
-            print("The error is: " + str(model[3]) )
+            print("The constant C is: " + str(model[3]))
+            print("The error is: " + str(model[4]) )
+    table = [[model[0], model[1].intercept_, model[1].coef_[0], model[2], model[3]] for model in model_list]
+    print(tabulate(table, col_names, tablefmt="fancy_grid"))
     return 0
         
 if __name__ == "__main__":
