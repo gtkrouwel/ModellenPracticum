@@ -89,7 +89,7 @@ def get_error(c_nr, begin_date, end_date, low_load=True):
     model_list = confidence(c_nr, all_dates, low_load)
     error = {}
     for model in model_list:
-        error.update({model[0]:(model[3], model[4])})
+        error.update({model[0]:(model[3], model[5])})
     return error
 
 # Takes as input two datasets, the data itself and the target
