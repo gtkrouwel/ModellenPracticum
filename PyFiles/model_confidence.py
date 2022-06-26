@@ -2,7 +2,7 @@ from sklearn.model_selection import train_test_split
 from sklearn.metrics import r2_score
 from sklearn.linear_model import LinearRegression
 from scipy.stats import bayes_mvs
-from pandas import concat
+from pandas import concat, Series
 from numpy import isnan, delete
 from datetime import datetime
 from tabulate import tabulate
@@ -80,7 +80,7 @@ def get_dates():
     return all_dates
 
 # Input: A list of circuit numbers, list of start dates & list of end dates and optional low load (but should always be true)
-# Output: An associative array where the circuit number is the index and the values are tuples of dates and the errors
+# Output: An associative array where the circuit number is the index and the values are pandas.Series of error data indexed by datetime
 def get_error(c_nr, begin_date, end_date, low_load=True):
     # Change data-type input of the dates
     all_dates = {}
@@ -93,7 +93,10 @@ def get_error(c_nr, begin_date, end_date, low_load=True):
     # Output the dates and errors
     error = {}
     for model in model_list:
-        error.update({model[0]:(model[3], model[5])})
+        datetime_indices   = model[3]
+        error_data         = model[5]
+        indexed_error_data = Series(data=error_data, index=datetime_indices, name='error')
+        error.update({model[0]:indexed_error_data})
     return error
 
 # Takes as input two datasets, the data itself and the target
