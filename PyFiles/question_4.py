@@ -1,3 +1,4 @@
+from datetime import datetime
 from util import *
 from model_confidence import get_error
 
@@ -13,7 +14,7 @@ def get_sensitivity_data(circuit_no: Union[int, str]) -> pd.Series:
     """
     circuit_no = str(circuit_no)
     data = load_circuit_data(circuit_no, PATH_TO_DATA)
-    # Set datatime as index.
+    # Set datetime as index.
     DATETIME_COLUMN_HEADING = list(data)[0]
     data = data.set_index(DATETIME_COLUMN_HEADING)
 
@@ -22,4 +23,50 @@ def get_sensitivity_data(circuit_no: Union[int, str]) -> pd.Series:
     
     # Remove values that are zero or NaN.
     sensitivity_data = sensitivity_data.replace(0,np.nan).dropna()
+
+    # Remove duplicates (in the .csv files some data points are written twice).
+    indices_without_duplicates = ~sensitivity_data.index.duplicated()
+    sensitivity_data = sensitivity_data[indices_without_duplicates]
+
     return sensitivity_data
+
+def get_error_data(circuit_no: Union[int, str]) -> pd.Series:
+    """
+    :param circuit_no: Circuit number of the cable for which to get data.
+    :return: Pandas series with datetime as index and error as values.
+    """
+    circuit_no = str(circuit_no)
+
+    # It seems to not cause problems to use start & end times well before and
+    # after the interval for which we have data.
+    t_begin = datetime(2018, 1,  1)
+    t_end   = datetime(2022, 6, 26)
+
+    return get_error([circuit_no], [t_begin], [t_end])[circuit_no]
+
+def get_sensitivity_and_error_data(
+        circuit_no: Union[int, str],
+        absolute_error=False
+    ) -> pd.DataFrame:
+    """
+    Loads data and combines it such that only time points are included at which
+    data for both "sensitivity" and "error" are available.
+
+    :param circuit_no: Circuit number of the cable for which to get data.
+    :param absolute_error: If True, take absolute value of error.
+    :return: Pandas dataframe with datetime as index and as values, sensitivity
+    (pC) and error.
+    """
+    circuit_no = str(circuit_no)
+    sensitivity_data = get_sensitivity_data(circuit_no)
+    error_data = get_error_data(circuit_no)
+    
+    if absolute_error:
+        error_data = error_data.apply(abs)
+    
+    combined_data = pd.concat(
+        [sensitivity_data, error_data],
+        axis=1,
+        join='inner'  # Intersect.
+    )
+    return combined_data
