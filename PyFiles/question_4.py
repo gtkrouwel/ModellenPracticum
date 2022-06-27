@@ -30,7 +30,10 @@ def get_sensitivity_data(circuit_no: Union[int, str]) -> pd.Series:
 
     return sensitivity_data
 
-def get_error_data(circuit_no: Union[int, str]) -> pd.Series:
+def get_error_data(
+        circuit_no: Union[int, str],
+        absolute_error=True
+    ) -> pd.Series:
     """
     :param circuit_no: Circuit number of the cable for which to get data.
     :return: Pandas series with datetime as index and error as values.
@@ -42,7 +45,12 @@ def get_error_data(circuit_no: Union[int, str]) -> pd.Series:
     t_begin = datetime(2018, 1,  1)
     t_end   = datetime(2022, 6, 26)
 
-    return get_error([circuit_no], [t_begin], [t_end])[circuit_no]
+    error_data = get_error([circuit_no], [t_begin], [t_end])[circuit_no]
+
+    if absolute_error:
+        error_data = error_data.apply(abs)
+
+    return error_data
 
 def get_sensitivity_and_error_data(
         circuit_no: Union[int, str],
@@ -58,14 +66,12 @@ def get_sensitivity_and_error_data(
     (pC) and error.
     """
     circuit_no = str(circuit_no)
-    sensitivity_data = get_sensitivity_data(circuit_no)
-    error_data = get_error_data(circuit_no)
-    
-    if absolute_error:
-        error_data = error_data.apply(abs)
     
     combined_data = pd.concat(
-        [sensitivity_data, error_data],
+        [
+            get_sensitivity_data(circuit_no),
+            get_error_data(circuit_no, absolute_error)
+        ],
         axis=1,
         join='inner'  # Intersect.
     )
