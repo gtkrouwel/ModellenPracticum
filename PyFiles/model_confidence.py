@@ -3,7 +3,7 @@ from sklearn.metrics import r2_score
 from sklearn.linear_model import LinearRegression
 from scipy.stats import bayes_mvs
 from pandas import concat, Series
-from numpy import isnan, delete
+from numpy import isnan, delete, mean
 from datetime import datetime
 from tabulate import tabulate
 
@@ -31,7 +31,15 @@ def retrieve_combined_data(circuitnr, begin_date, end_date):
 # Output: Table temperature from the formula temp_cable = c*p + temp_soil
 def calculate_temp_cable(constant_c, curr, temp_soil):
     # This works because prop and temp_soil are numpy arrays
-    return constant_c*(curr**2) + temp_soil
+    return constant_c*(curr**(1.5)) + temp_soil
+
+# Input: The propogation time, a0 and a1 and the error
+# Output: Confidence interval around the cable temperature
+def confidence_interval(prop, a0, a1, error):
+    _, _, std_error = bayes_mvs(error, alpha=0.954)
+    left = a0 + a1*prop - 2*std_error[0]
+    right = a0 + a1*prop + 2*std_error[0]
+    return left, right
 
 # Sadly, this helper function has to be hard-coded for now
 # Output: All dates corresponding to a circuit
@@ -42,7 +50,7 @@ def get_dates():
     all_dates.update({"1358": (begin_date, end_date)})
 
     # Circuit 2003
-    begin_date, end_date =  datetime(2021, 1, 1), datetime(2021, 7, 1)
+    begin_date, end_date =  datetime(2019, 7, 30), datetime(2021, 8, 16)
     all_dates.update({"2003": (begin_date, end_date)})
 
     # Circuit 20049
@@ -280,14 +288,12 @@ def main():
     # First table consists of circuit number, a0 and a1, the r-score and the constant c
     col_names = ["Circuit number", "a0", "a1", "confidence", "constant_c"]
     table = [[model[0], model[1].intercept_, model[1].coef_[0], model[2], model[4]]  for model in model_list]
+    print(tabulate(table, col_names, tablefmt="fancy_grid"))
 
     # Second table consists of circuit number and the confidence interval around mean and variance
-    col_names_2 = ["Circuit number", "mean_confidence", "var_confidence"]
-    table_2 = [[model[0], model[6][0][1], model[6][1][1]] for model in model_list]
-
-    # Printing the tables
+    col_names = ["Circuit number", "mean_confidence", "var_confidence"]
+    table = [[model[0], model[6][0][1], model[6][1][1]] for model in model_list]
     print(tabulate(table, col_names, tablefmt="fancy_grid"))
-    print(tabulate(table_2, col_names_2, tablefmt="fancy_grid"))
 
     return 0
         
