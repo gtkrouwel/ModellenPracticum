@@ -3,7 +3,7 @@ from sklearn.metrics import r2_score
 from sklearn.linear_model import LinearRegression
 from scipy.stats import bayes_mvs
 from pandas import concat, Series
-from numpy import isnan, delete, mean
+from numpy import isnan, delete
 from datetime import datetime
 from tabulate import tabulate
 
@@ -13,7 +13,7 @@ from util import get_circuit_nos
 import os
 from pathlib import Path
 
-# Constant C as determined outside of this program
+# Constant C as determined outside of this program, currently an incorrect value
 CONSTANT_C = 7.79e-8
 PATH_TO_DATA = Path(os.pardir, os.pardir, "modellenpracticum2022-speed-of-heat") / "data"
 
@@ -31,15 +31,25 @@ def retrieve_combined_data(circuitnr, begin_date, end_date):
 # Output: Table temperature from the formula temp_cable = c*p + temp_soil
 def calculate_temp_cable(constant_c, curr, temp_soil):
     # This works because prop and temp_soil are numpy arrays
-    return constant_c*(curr**(1.5)) + temp_soil
+    return constant_c*(curr**2) + temp_soil
 
 # Input: The propogation time, a0 and a1 and the error
 # Output: Confidence interval around the cable temperature
 def confidence_interval(prop, a0, a1, error):
+    # This part removes all NANs from the data
+    list_index = []
+    for i in range(0, len(prop)):
+        # If either of the sets is NAN, remove it from both sets
+        if isnan(prop[i]) or isnan(error[i]):
+            list_index.append(i)
+    prop = delete(prop, list_index)
+    error = delete(error, list_index)
+
+    # Use the normal distribution 2*std in order to get confidence interval around temp_cable
     _, _, std_error = bayes_mvs(error, alpha=0.954)
     left = a0 + a1*prop - 2*std_error[0]
     right = a0 + a1*prop + 2*std_error[0]
-    return left, right
+    return [(left[i], right[i]) for i in range(0, len(left))]
 
 # Sadly, this helper function has to be hard-coded for now
 # Output: All dates corresponding to a circuit
@@ -96,7 +106,7 @@ def get_error(c_nr, begin_date, end_date, low_load=True):
         all_dates.update({c_nr[i]: (begin_date[i], end_date[i])})
 
     # Calculate the model
-    model_list = confidence(c_nr, all_dates, low_load)
+    model_list = model_calculation(c_nr, all_dates, low_load)
 
     # Output the dates and errors
     error = {}
@@ -197,7 +207,7 @@ def reverse_engineer_c(a0, a1, prop, temp_soil, curr):
 
 # Input is the circuit number list, time frame and a flag for low_load
 # Output is a model for each circuit in the circuit number array
-def confidence(circuit_nr, all_dates, low_load):
+def model_calculation(circuit_nr, all_dates, low_load):
     model_list = []
 
     for c_nr in circuit_nr:
@@ -247,10 +257,12 @@ def confidence(circuit_nr, all_dates, low_load):
 
             # Calculate the confidence interval on the mean, variance and std based on bayesian linear regression
             mean, var, std = bayes_mvs(temp_cable, alpha=score)
-
+            # Calculate the confidence interval based on prop
+            temp_cable_confidence = confidence_interval(prop, model.intercept_, model.coef_[0], epsilon_error)
+            
             # Clean up the list
             model_list.pop()
-            model_list.append([c_nr, model, score, filtered_dates, constant_c, epsilon_error, (mean, var, std)])
+            model_list.append([c_nr, model, score, filtered_dates, constant_c, epsilon_error, (mean, var, std), temp_cable_confidence])
 
     return model_list
 
@@ -268,21 +280,21 @@ def main():
     low_load = True
 
     # Function which calculates the alpha's
-    model_list = confidence(circuit_nr, all_dates, low_load)
+    model_list = model_calculation(circuit_nr, all_dates, low_load)
 
     # Now printing the final results
-    print("Now the summary: ")
-    for model in model_list:
-        print("The model for circuit number " + str(model[0]) + ":")
-        print("The coefficient a0 is: " + str(model[1].intercept_) )
-        print("The coefficient a1 is: " + str(model[1].coef_[0]))
-        print("The confidence is: " + str(model[2]))
-        # If the low-load flag was set, we have way more ouput
-        if low_load:
-            print("The constant C is: " + str(model[4]))
-            print("The error is: " + str(model[5]))
-            print("The confidence interval for temp_cable is (a0 + a1*prop - error, a0 + a1*prop + error) = (" + str(model[1].intercept_ - max(model[5])) + " + " + str(model[1].coef_[0]) + " * prop - " + ", " + str(model[1].intercept_ + max(model[5])) + " + " + str(model[1].coef_[0]) + " * prop + " + ")")
-            print("The average interval for cable temp is " + str(model[6][0]) + " and its variance is " + str(model[6][1]))
+    #print("Now the summary: ")
+    #for model in model_list:
+    #    print("The model for circuit number " + str(model[0]) + ":")
+    #    print("The coefficient a0 is: " + str(model[1].intercept_) )
+    #    print("The coefficient a1 is: " + str(model[1].coef_[0]))
+    #    print("The confidence is: " + str(model[2]))
+    #    # If the low-load flag was set, we have way more ouput
+    #    if low_load:
+    #        print("The constant C is: " + str(model[4]))
+    #        print("The error is: " + str(model[5]))
+    #        print("The confidence interval for temp_cable is (a0 + a1*prop - error, a0 + a1*prop + error) = (" + str(model[1].intercept_ - max(model[5])) + " + " + str(model[1].coef_[0]) + " * prop - " + ", " + str(model[1].intercept_ + max(model[5])) + " + " + str(model[1].coef_[0]) + " * prop + " + ")")
+    #        print("The average interval for cable temp is " + str(model[6][0]) + " and its variance is " + str(model[6][1]))
 
     # Convenient table printing for the report, not necessary
     # First table consists of circuit number, a0 and a1, the r-score and the constant c
