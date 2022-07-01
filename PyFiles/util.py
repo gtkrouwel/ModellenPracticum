@@ -17,10 +17,10 @@ from preprocess import *
 
 PATH_TO_DATA = PATH_TO_ALLIANDER_REPO / 'data'
 
-CURRENT_COLUMN_HEADING        = 'Current'
-POWER_COLUMN_HEADING          = 'Power'
-REACTIVE_POWER_COLUMN_HEADING = 'Reactive power'
-CABLE_TEMP_COLUMN_HEADING     = 'Cable temperature'
+# CURRENT_COLUMN_HEADING        = 'Current'
+# POWER_COLUMN_HEADING          = 'Power'
+# REACTIVE_POWER_COLUMN_HEADING = 'Reactive power'
+# CABLE_TEMP_COLUMN_HEADING     = 'Cable temperature'
 
 def get_circuit_nos() -> list[str]:
     """
